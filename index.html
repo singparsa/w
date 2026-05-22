@@ -63,13 +63,10 @@ button{
   font-weight:bold;
 }
 
-/* 검은 잠금 화면 */
+/* 검은 화면 */
 #lockScreen{
   position:fixed;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
+  inset:0;
   background:black;
   display:none;
   justify-content:center;
@@ -118,8 +115,15 @@ const timer = document.getElementById("timer");
 
 let countdown;
 
+// ===== 알람용 AudioContext =====
+const audioContext =
+  new (window.AudioContext || window.webkitAudioContext)();
+
 // 타이머 시작
 function startTimer(){
+
+  // 모바일 브라우저 오디오 허용
+  audioContext.resume();
 
   const minutes = parseInt(
     document.getElementById("minutesInput").value
@@ -136,13 +140,13 @@ function startTimer(){
   startScreen.style.display = "none";
   lockScreen.style.display = "flex";
 
-  // 전체화면 시도
+  // 전체화면
   enterFullscreen();
 
   // 초기 시간 표시
   updateTimer(totalSeconds);
 
-  // 카운트다운 시작
+  // 카운트다운
   countdown = setInterval(() => {
 
     totalSeconds--;
@@ -154,10 +158,10 @@ function startTimer(){
 
       clearInterval(countdown);
 
-      // 알람 울리기
+      // 알람
       playAlarm();
 
-      // 3초 후 초기 화면 복귀
+      // 5초 후 홈 화면
       setTimeout(() => {
 
         lockScreen.style.display = "none";
@@ -167,7 +171,7 @@ function startTimer(){
 
         exitFullscreen();
 
-      }, 3000);
+      }, 5000);
     }
 
   },1000);
@@ -181,19 +185,32 @@ function updateTimer(seconds){
 
   timer.textContent =
     String(min).padStart(2,"0")
-    + ":"
-    + String(sec).padStart(2,"0");
+    + ":" +
+    String(sec).padStart(2,"0");
 }
 
-// 알람 소리
+// ===== 진짜 작동하는 알람 =====
 function playAlarm(){
 
-  const audio = new Audio(
-    "https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"
-  );
+  const duration = 5; // 5초
+  const now = audioContext.currentTime;
 
-  audio.play();
+  for(let i = 0; i < duration; i++){
 
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.value = 1000;
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    gainNode.gain.setValueAtTime(0.3, now + i);
+
+    oscillator.start(now + i);
+    oscillator.stop(now + i + 0.5);
+  }
 }
 
 // 전체화면
@@ -214,7 +231,7 @@ function exitFullscreen(){
   }
 }
 
-// 터치/드래그 방지
+// 터치 이동 방지
 document.addEventListener(
   "touchmove",
   function(e){
