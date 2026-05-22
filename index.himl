@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>집중 타이머</title>
+
+  <style>
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select:none;
+    }
+
+    html, body{
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      background:black;
+      font-family:Arial, sans-serif;
+      touch-action:none;
+    }
+
+    body{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      color:white;
+    }
+
+    /* 시작 화면 */
+    #startScreen{
+      width:100%;
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+      align-items:center;
+      background:black;
+      gap:25px;
+      padding:20px;
+    }
+
+    h1{
+      font-size:2rem;
+      text-align:center;
+    }
+
+    input{
+      width:220px;
+      padding:18px;
+      font-size:1.3rem;
+      border:none;
+      border-radius:10px;
+      text-align:center;
+      outline:none;
+      background:#111;
+      color:white;
+    }
+
+    button{
+      padding:18px 40px;
+      font-size:1.2rem;
+      border:none;
+      border-radius:10px;
+      background:white;
+      color:black;
+      font-weight:bold;
+      cursor:pointer;
+    }
+
+    /* 타이머 화면 */
+    #lockScreen{
+      position:fixed;
+      inset:0;
+      background:black;
+      display:none;
+      justify-content:center;
+      align-items:center;
+      z-index:999999;
+      touch-action:none;
+    }
+
+    #timer{
+      font-size:5rem;
+      font-weight:bold;
+      color:white;
+      letter-spacing:3px;
+    }
+
+    /* 완전 검은 화면 유지 */
+    #blocker{
+      position:fixed;
+      inset:0;
+      z-index:999998;
+      display:none;
+      background:black;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- 시작 화면 -->
+  <div id="startScreen">
+    <h1>공부 시간 입력</h1>
+
+    <input
+      type="number"
+      id="minutesInput"
+      placeholder="분 입력"
+      min="1"
+    />
+
+    <button onclick="startStudy()">
+      시작하기
+    </button>
+  </div>
+
+  <!-- 검은 잠금 화면 -->
+  <div id="lockScreen">
+    <div id="timer">00:00</div>
+  </div>
+
+  <div id="blocker"></div>
+
+  <script>
+    const startScreen = document.getElementById("startScreen");
+    const lockScreen = document.getElementById("lockScreen");
+    const blocker = document.getElementById("blocker");
+    const timerText = document.getElementById("timer");
+
+    let countdown;
+
+    // 시간 시작
+    function startStudy() {
+      const minutes = parseInt(
+        document.getElementById("minutesInput").value
+      );
+
+      if (!minutes || minutes <= 0) {
+        alert("시간을 입력하세요.");
+        return;
+      }
+
+      let totalSeconds = minutes * 60;
+
+      // 시작 화면 숨기기
+      startScreen.style.display = "none";
+
+      // 검은 잠금 화면 표시
+      lockScreen.style.display = "flex";
+      blocker.style.display = "block";
+
+      // 전체화면 시도
+      enterFullscreen();
+
+      // 초기 표시
+      updateTimer(totalSeconds);
+
+      // 타이머 실행
+      countdown = setInterval(() => {
+        totalSeconds--;
+
+        updateTimer(totalSeconds);
+
+        // 시간 종료
+        if (totalSeconds <= 0) {
+          clearInterval(countdown);
+
+          // 잠금 화면 종료
+          lockScreen.style.display = "none";
+          blocker.style.display = "none";
+
+          // 처음 화면으로 복귀
+          startScreen.style.display = "flex";
+
+          document.getElementById("minutesInput").value = "";
+
+          // 전체화면 종료
+          exitFullscreen();
+        }
+
+      }, 1000);
+    }
+
+    // 시간 표시
+    function updateTimer(seconds) {
+      const min = Math.floor(seconds / 60);
+      const sec = seconds % 60;
+
+      timerText.textContent =
+        String(min).padStart(2, "0") +
+        ":" +
+        String(sec).padStart(2, "0");
+    }
+
+    // 전체화면
+    function enterFullscreen() {
+      const elem = document.documentElement;
+
+      if (elem.requestFullscreen) {
+        elem.requestFullscreen();
+      } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+      }
+    }
+
+    // 전체화면 종료
+    function exitFullscreen() {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+
+    // 화면 터치 막기
+    document.addEventListener(
+      "touchmove",
+      function(e){
+        e.preventDefault();
+      },
+      { passive:false }
+    );
+
+    document.addEventListener(
+      "gesturestart",
+      function(e){
+        e.preventDefault();
+      }
+    );
+
+    document.addEventListener(
+      "contextmenu",
+      function(e){
+        e.preventDefault();
+      }
+    );
+
+    // 뒤로가기 최대 차단
+    history.pushState(null, null, location.href);
+
+    window.onpopstate = function () {
+      history.go(1);
+    };
+
+    // 화면 항상 맨 위 유지 시도
+    setInterval(() => {
+      window.scrollTo(0, 0);
+    }, 100);
+
+  </script>
+
+</body>
+</html>
