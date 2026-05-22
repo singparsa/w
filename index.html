@@ -1,16 +1,22 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta
+  name="viewport"
+  content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+/>
+
 <title>집중 타이머</title>
 
 <style>
+
 *{
   margin:0;
   padding:0;
   box-sizing:border-box;
   user-select:none;
+  -webkit-user-select:none;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -22,21 +28,28 @@ html, body{
   font-family:Arial, sans-serif;
 }
 
+/* iPhone 안전영역 제거 */
 body{
+  position:fixed;
+  inset:0;
   display:flex;
   justify-content:center;
   align-items:center;
   color:white;
+  touch-action:none;
 }
 
 /* 시작 화면 */
 #startScreen{
-  width:100%;
-  height:100%;
+  position:fixed;
+  inset:0;
+  background:black;
+
   display:flex;
   flex-direction:column;
   justify-content:center;
   align-items:center;
+
   gap:25px;
 }
 
@@ -46,39 +59,66 @@ h1{
 
 input{
   width:220px;
-  padding:16px;
+  padding:18px;
   font-size:24px;
   text-align:center;
+
   border:none;
-  border-radius:10px;
+  border-radius:12px;
+
   outline:none;
+
+  background:#111;
+  color:white;
 }
 
 button{
-  padding:16px 35px;
+  padding:18px 40px;
   font-size:22px;
   border:none;
-  border-radius:10px;
-  cursor:pointer;
+  border-radius:12px;
+
+  background:white;
+  color:black;
+
   font-weight:bold;
 }
 
-/* 검은 화면 */
+/* 검은 잠금 화면 */
 #lockScreen{
   position:fixed;
   inset:0;
+
+  width:100vw;
+  height:100vh;
+
   background:black;
+
   display:none;
   justify-content:center;
   align-items:center;
-  z-index:9999;
+
+  z-index:999999;
+
+  overflow:hidden;
 }
 
 #timer{
   font-size:90px;
   font-weight:bold;
-  letter-spacing:3px;
+  color:white;
+  letter-spacing:4px;
 }
+
+/* 상태바 가리기용 */
+#blackOverlay{
+  position:fixed;
+  inset:0;
+  background:black;
+  z-index:999998;
+  display:none;
+}
+
 </style>
 </head>
 
@@ -94,7 +134,7 @@ button{
     id="minutesInput"
     placeholder="분 입력"
     min="1"
-  >
+  />
 
   <button onclick="startTimer()">
     시작
@@ -107,23 +147,22 @@ button{
   <div id="timer">00:00</div>
 </div>
 
+<div id="blackOverlay"></div>
+
 <script>
 
 const startScreen = document.getElementById("startScreen");
 const lockScreen = document.getElementById("lockScreen");
 const timer = document.getElementById("timer");
+const blackOverlay = document.getElementById("blackOverlay");
 
 let countdown;
 
-// ===== 알람용 AudioContext =====
-const audioContext =
-  new (window.AudioContext || window.webkitAudioContext)();
+// ===== 알람 오디오 =====
+let audioContext;
 
-// 타이머 시작
-function startTimer(){
-
-  // 모바일 브라우저 오디오 허용
-  audioContext.resume();
+// ===== 시작 =====
+async function startTimer(){
 
   const minutes = parseInt(
     document.getElementById("minutesInput").value
@@ -134,19 +173,28 @@ function startTimer(){
     return;
   }
 
+  // 오디오 초기화
+  audioContext =
+    new (window.AudioContext || window.webkitAudioContext)();
+
+  await audioContext.resume();
+
   let totalSeconds = minutes * 60;
 
   // 화면 전환
   startScreen.style.display = "none";
+
   lockScreen.style.display = "flex";
+
+  blackOverlay.style.display = "block";
 
   // 전체화면
   enterFullscreen();
 
-  // 초기 시간 표시
+  // 시간 표시
   updateTimer(totalSeconds);
 
-  // 카운트다운
+  // 타이머
   countdown = setInterval(() => {
 
     totalSeconds--;
@@ -161,10 +209,13 @@ function startTimer(){
       // 알람
       playAlarm();
 
-      // 5초 후 홈 화면
+      // 5초 후 홈으로
       setTimeout(() => {
 
         lockScreen.style.display = "none";
+
+        blackOverlay.style.display = "none";
+
         startScreen.style.display = "flex";
 
         document.getElementById("minutesInput").value = "";
@@ -177,43 +228,61 @@ function startTimer(){
   },1000);
 }
 
-// 시간 표시
+// ===== 시간 표시 =====
 function updateTimer(seconds){
 
   const min = Math.floor(seconds / 60);
+
   const sec = seconds % 60;
 
   timer.textContent =
     String(min).padStart(2,"0")
-    + ":" +
-    String(sec).padStart(2,"0");
+    + ":"
+    + String(sec).padStart(2,"0");
 }
 
-// ===== 진짜 작동하는 알람 =====
+// ===== 강한 알람 =====
 function playAlarm(){
 
-  const duration = 5; // 5초
-  const now = audioContext.currentTime;
+  // 여러 번 반복
+  for(let i = 0; i < 8; i++){
 
-  for(let i = 0; i < duration; i++){
+    const oscillator =
+      audioContext.createOscillator();
 
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
+    const gainNode =
+      audioContext.createGain();
 
-    oscillator.type = "sine";
-    oscillator.frequency.value = 1000;
+    oscillator.type = "square";
+
+    oscillator.frequency.value = 1200;
 
     oscillator.connect(gainNode);
+
     gainNode.connect(audioContext.destination);
 
-    gainNode.gain.setValueAtTime(0.3, now + i);
+    const time =
+      audioContext.currentTime + i * 0.5;
 
-    oscillator.start(now + i);
-    oscillator.stop(now + i + 0.5);
+    gainNode.gain.setValueAtTime(0.5, time);
+
+    oscillator.start(time);
+
+    oscillator.stop(time + 0.3);
+  }
+
+  // 진동 지원
+  if(navigator.vibrate){
+    navigator.vibrate([
+      300, 100,
+      300, 100,
+      300, 100,
+      300
+    ]);
   }
 }
 
-// 전체화면
+// ===== 전체화면 =====
 function enterFullscreen(){
 
   const elem = document.documentElement;
@@ -221,9 +290,18 @@ function enterFullscreen(){
   if(elem.requestFullscreen){
     elem.requestFullscreen();
   }
+
+  if(elem.webkitRequestFullscreen){
+    elem.webkitRequestFullscreen();
+  }
+
+  // 모바일 주소창 숨기기
+  setTimeout(() => {
+    window.scrollTo(0,1);
+  },100);
 }
 
-// 전체화면 종료
+// ===== 전체화면 종료 =====
 function exitFullscreen(){
 
   if(document.exitFullscreen){
@@ -231,7 +309,7 @@ function exitFullscreen(){
   }
 }
 
-// 터치 이동 방지
+// ===== 스크롤 방지 =====
 document.addEventListener(
   "touchmove",
   function(e){
@@ -240,7 +318,7 @@ document.addEventListener(
   { passive:false }
 );
 
-// 우클릭 방지
+// ===== 우클릭 방지 =====
 document.addEventListener(
   "contextmenu",
   function(e){
@@ -248,12 +326,17 @@ document.addEventListener(
   }
 );
 
-// 뒤로가기 방지
+// ===== 뒤로가기 방지 =====
 history.pushState(null, null, location.href);
 
 window.onpopstate = function () {
   history.go(1);
 };
+
+// ===== 화면 계속 고정 =====
+setInterval(() => {
+  window.scrollTo(0,0);
+},100);
 
 </script>
 
